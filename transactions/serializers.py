@@ -98,7 +98,7 @@ class TransactionListSerializer(TransactionSerializer):
     class Meta(TransactionSerializer.Meta):
         fields = [
             'id', 'date', 'description', 'amount', 'formatted_amount', 
-            'transaction_type', 'vat_amount', 'status', 'has_receipt', 
+            'transaction_type','vat_rate', 'vat_amount', 'status', 'has_receipt', 
             'account', 'account_name', 'category', 'category_name'
         ]
 
@@ -109,10 +109,17 @@ class TransactionCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Transaction
         fields = [
-            'date', 'description', 'amount', 'vat_amount', 'status', 
+            'date', 'description', 'amount','vat_rate', 'vat_amount', 'status', 
             'account', 'category', 'reference_number', 'notes'
         ]
-    
+    def validate(self, data):
+        # Calculate VAT amount if vat_rate is provided but vat_amount is not
+        if 'vat_rate' in data and 'vat_amount' not in data and 'amount' in data:
+            data['vat_amount'] = data['amount'] * (data['vat_rate'] / Decimal('100'))
+        
+        # If vat_amount is provided but vat_rate is not, we could calculate it
+        # But usually it's better to require the rate for clarity
+        return data
     def validate_account(self, value):
         request = self.context.get('request')
         if request and hasattr(request, 'user'):

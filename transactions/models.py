@@ -62,6 +62,9 @@ class Transaction(models.Model):
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     transaction_type = models.CharField(max_length=10, choices=TRANSACTION_TYPE_CHOICES)
     vat_amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    vat_rate = models.DecimalField(max_digits=5, decimal_places=2,default=Decimal('0.00'),
+        help_text="VAT rate as percentage (e.g., 21.00 for 21%)"
+    )
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='unlabeled')
     
     # Receipt/Document fields
@@ -92,11 +95,16 @@ class Transaction(models.Model):
         return f"{self.date} - {self.description} - {self.amount}"
 
     def save(self, *args, **kwargs):
+        # Auto-calculate VAT amount if not explicitly set
+        if self.vat_rate is not None and self.amount is not None:
+            self.vat_amount = self.amount * (self.vat_rate / Decimal('100'))
+            
         # Auto-determine transaction type based on amount
         if self.amount < 0:
             self.transaction_type = 'expense'
         else:
             self.transaction_type = 'income'
+        
         
         # Update has_receipt based on receipt_file
         self.has_receipt = bool(self.receipt_file)

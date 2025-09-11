@@ -220,15 +220,6 @@ class TransactionViewSet(viewsets.ModelViewSet):
                     labeled_count += 1
             return {'message': f'{labeled_count} transactions labeled successfully'}
 
-        elif action == 'export':
-            # Return transaction IDs for export
-            return {
-                'message': 'Export initiated',
-                'transaction_ids': list(transactions.values_list('id', flat=True))
-            }
-
-        return {'error': 'Unknown action'}
-
     @action(detail=False, methods=['get'])
     def export(self, request):
         """Export transactions to CSV"""
@@ -245,6 +236,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
         response['Content-Disposition'] = 'attachment; filename="transactions.csv"'
 
         writer = csv.writer(response)
+        # Use the same headers as your import expects
         writer.writerow([
             'Date', 'Description', 'Amount', 'Type', 'VAT Amount', 'Category', 
             'Account', 'Status', 'Has Receipt', 'Reference', 'Notes'
@@ -252,7 +244,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
 
         for transaction in queryset:
             writer.writerow([
-                transaction.date,
+                transaction.date.strftime('%m/%d/%Y'),  # Match your CSV format
                 transaction.description,
                 transaction.amount,
                 transaction.transaction_type,
@@ -260,7 +252,7 @@ class TransactionViewSet(viewsets.ModelViewSet):
                 transaction.category.name if transaction.category else '',
                 transaction.account.name,
                 transaction.status,
-                transaction.has_receipt,
+                'TRUE' if transaction.has_receipt else 'FALSE',  # Match your CSV format
                 transaction.reference_number,
                 transaction.notes
             ])

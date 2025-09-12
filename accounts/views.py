@@ -64,19 +64,7 @@ def verify_email(request):
         return Response({'message': 'Email verified successfully'})
     except User.DoesNotExist:
         return Response({'error': 'Invalid token'}, status=400)
-# @api_view(['POST'])
-# @permission_classes([permissions.AllowAny])
-# def register_step2_validate(request):
-#     """
-#     Validate step 2 registration data (business profile)
-#     """
-#     serializer = UserRegistrationStep2Serializer(data=request.data)
-#     if serializer.is_valid():
-#         return Response({
-#             'message': 'Step 2 validation successful',
-#             'data': serializer.validated_data
-#         }, status=status.HTTP_200_OK)
-#     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
@@ -144,7 +132,6 @@ def user_login(request):
             otp_code = str(random.randint(100000, 999999))
             OTPVerification.objects.filter(user=user, is_verified=False).delete()
             OTPVerification.objects.create(user=user, otp_code=otp_code)
-            print(f"DEBUG: OTP for {user.email}: {otp_code}")
             # Send OTP via email
             send_mail(
                 'Your Login OTP',
@@ -229,10 +216,3 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         return self.request.user
 
-# @api_view(['GET'])
-# def user_profile(request):
-#     """
-#     Get current user profile
-#     """
-#     serializer = UserProfileSerializer(request.user)
-#     return Response(serializer.data)

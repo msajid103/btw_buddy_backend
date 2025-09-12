@@ -1,7 +1,10 @@
+import environ
 import os
 from pathlib import Path
 from decouple import config
 from datetime import timedelta
+
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -77,13 +80,19 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
+
+# Initialise environment variables
+env = environ.Env()
+environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
+
+print('email etc ',env("EMAIL_HOST_USER"))
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'  # or your email provider
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'sajid2021@namal.edu.pk'
-EMAIL_HOST_PASSWORD = 'sgzp nmud xldc vsth'  # Use app password for Gmail
-DEFAULT_FROM_EMAIL = 'sajid2021@namal.edu.pk'
+EMAIL_HOST_USER = env("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")  # Use app password for Gmail
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'Europe/Amsterdam'

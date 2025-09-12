@@ -85,7 +85,6 @@ AUTH_PASSWORD_VALIDATORS = [
 env = environ.Env()
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
-print('email etc ',env("EMAIL_HOST_USER"))
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'  # or your email provider
 EMAIL_PORT = 587

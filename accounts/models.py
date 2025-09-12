@@ -1,3 +1,5 @@
+from datetime import timedelta
+import uuid
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
 from django.utils import timezone
@@ -42,16 +44,16 @@ class User(AbstractBaseUser, PermissionsMixin):
     first_name = models.CharField(max_length=30)
     last_name = models.CharField(max_length=30)
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='user')
-    is_active = models.BooleanField(default=True)
+    is_email_verified = models.BooleanField(default=False)  
+    email_verification_token = models.UUIDField(default=uuid.uuid4, null=True, blank=True)
     is_staff = models.BooleanField(default=False)
     date_joined = models.DateTimeField(default=timezone.now)
     
     # 2FA fields (for future implementation)
-
     is_2fa_enabled = models.BooleanField(default=False)
-    totp_secret = models.CharField(max_length=32, blank=True, null=True)
+    
     phone_number = models.CharField(max_length=20, blank=True, default="---------------")
-    language =  models.CharField(max_length=20, choices=LANGUAGE_CHOICES, default='en')       
+    language =  models.CharField(max_length=20, choices=LANGUAGE_CHOICES, default='en')   
     
     
     objects = UserManager()
@@ -68,6 +70,15 @@ class User(AbstractBaseUser, PermissionsMixin):
     @property
     def full_name(self):
         return f"{self.first_name} {self.last_name}"
+    
+class OTPVerification(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    otp_code = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_verified = models.BooleanField(default=False)
+    
+    def is_expired(self):
+        return timezone.now() > self.created_at + timedelta(minutes=5)
 
 class BusinessProfile(models.Model):
     LEGAL_FORM_CHOICES = [

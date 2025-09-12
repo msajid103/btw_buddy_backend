@@ -1,13 +1,14 @@
+import random
 from rest_framework import status, generics, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import login
 from django.db import transaction
-from .models import User, BusinessProfile
+from django.core.mail import send_mail
+from .models import OTPVerification, User
 from .serializers import (
     UserRegistrationStep1Serializer,
-    UserRegistrationStep2Serializer,
     CompleteRegistrationSerializer,
     UserLoginSerializer,
     UserProfileSerializer
@@ -31,19 +32,51 @@ def register_step1_validate(request):
         }, status=status.HTTP_200_OK)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
+# Add after register_step1_validate view:
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
-def register_step2_validate(request):
-    """
-    Validate step 2 registration data (business profile)
-    """
-    serializer = UserRegistrationStep2Serializer(data=request.data)
-    if serializer.is_valid():
-        return Response({
-            'message': 'Step 2 validation successful',
-            'data': serializer.validated_data
-        }, status=status.HTTP_200_OK)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+def send_verification_email(request):
+    email = request.data.get('email')
+    try:
+        user = User.objects.get(email=email, is_email_verified=False)
+        verification_link = f"http://localhost:3000/verify-email/{user.email_verification_token}"
+        send_mail(
+            'Verify your email',
+            f'Click here to verify: {verification_link}',
+            'noreply@yourdomain.com',
+            [user.email]
+        )
+        return Response({'message': 'Verification email sent'})
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=400)
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def verify_email(request):
+    token = request.data.get('token')
+    try:
+        user = User.objects.get(email_verification_token=token)
+        user.is_email_verified = True
+        user.is_active = True
+        user.email_verification_token = None
+        user.save()
+        return Response({'message': 'Email verified successfully'})
+    except User.DoesNotExist:
+        return Response({'error': 'Invalid token'}, status=400)
+# @api_view(['POST'])
+# @permission_classes([permissions.AllowAny])
+# def register_step2_validate(request):
+#     """
+#     Validate step 2 registration data (business profile)
+#     """
+#     serializer = UserRegistrationStep2Serializer(data=request.data)
+#     if serializer.is_valid():
+#         return Response({
+#             'message': 'Step 2 validation successful',
+#             'data': serializer.validated_data
+#         }, status=status.HTTP_200_OK)
+#     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
@@ -55,8 +88,8 @@ def complete_registration(request):
     if serializer.is_valid():
         try:
             with transaction.atomic():
-                user = serializer.save()
-                
+                user = serializer.save()               
+                user.is_active = False  
                 # Generate JWT tokens
                 refresh = RefreshToken.for_user(user)
                 
@@ -92,14 +125,44 @@ def complete_registration(request):
 @permission_classes([permissions.AllowAny])
 def user_login(request):
     """
-    User login endpoint
+    User login endpoint with 2FA support
     """
     serializer = UserLoginSerializer(data=request.data, context={'request': request})
     if serializer.is_valid():
         user = serializer.validated_data['user']
-        login(request, user)
         
-        # Generate JWT tokens
+        # Check if email is verified
+        if not user.is_email_verified:
+            return Response({
+                'error': 'Please verify your email before logging in',
+                'email_not_verified': True
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Check if 2FA is enabled
+        if user.is_2fa_enabled:
+            # Generate and send OTP
+            otp_code = str(random.randint(100000, 999999))
+            OTPVerification.objects.filter(user=user, is_verified=False).delete()
+            OTPVerification.objects.create(user=user, otp_code=otp_code)
+            print(f"DEBUG: OTP for {user.email}: {otp_code}")
+            # Send OTP via email
+            send_mail(
+                'Your Login OTP',
+                f'Your OTP code is: {otp_code}',
+                'noreply@yourdomain.com',
+                [user.email],
+                fail_silently=False,
+            )
+            
+            return Response({
+                'message': 'OTP sent to your email',
+                'user_id': user.id,
+                'requires_2fa': True,
+                'email': user.email
+            }, status=status.HTTP_200_OK)
+        
+        # Normal login without 2FA
+        login(request, user)
         refresh = RefreshToken.for_user(user)
         
         return Response({
@@ -120,7 +183,28 @@ def user_login(request):
         }, status=status.HTTP_200_OK)
     
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def verify_otp(request):
+    user_id = request.data.get('user_id')
+    otp_code = request.data.get('otp_code')
+    
+    try:
+        otp_obj = OTPVerification.objects.get(user_id=user_id, otp_code=otp_code, is_verified=False)
+        if otp_obj.is_expired():
+            return Response({'error': 'OTP expired'}, status=400)
+        
+        otp_obj.is_verified = True
+        otp_obj.save()
+        
+        refresh = RefreshToken.for_user(otp_obj.user)
+        return Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'user': {'id': otp_obj.user.id, 'email': otp_obj.user.email}
+        })
+    except OTPVerification.DoesNotExist:
+        return Response({'error': 'Invalid OTP'}, status=400)
 @api_view(['POST'])
 def user_logout(request):
     """

@@ -5,7 +5,7 @@ from .models import User, BusinessProfile
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
     list_display = ('email', 'first_name', 'last_name', 'role', 'phone_number', 'is_active', 'date_joined')
-    list_filter = ('role', 'is_active', 'is_staff', 'is_2fa_enabled')
+    list_filter = ('role', 'is_email_verified', 'is_staff', 'is_2fa_enabled')
     search_fields = ('email', 'first_name', 'last_name', 'phone_number')
     ordering = ('-date_joined',)
     filter_horizontal = ('groups', 'user_permissions',)
@@ -16,7 +16,7 @@ class UserAdmin(BaseUserAdmin):
             'fields': ('first_name', 'last_name', 'role', 'phone_number', 'language')
         }),
         ('Permissions', {
-            'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')
+            'fields': ('is_email_verified', 'is_staff', 'is_superuser', 'groups', 'user_permissions')
         }),
         ('2FA', {'fields': ('is_2fa_enabled', 'totp_secret')}),
         ('Important dates', {'fields': ('last_login', 'date_joined')}),

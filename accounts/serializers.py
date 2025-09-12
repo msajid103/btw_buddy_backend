@@ -32,17 +32,6 @@ class BusinessProfileSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("KVK number must be exactly 8 digits.")
         return value
 
-class UserRegistrationStep2Serializer(serializers.Serializer):
-    company_name = serializers.CharField(max_length=200)
-    kvk_number = serializers.CharField(max_length=8)
-    legal_form = serializers.ChoiceField(choices=BusinessProfile.LEGAL_FORM_CHOICES)
-    reporting_period = serializers.ChoiceField(choices=BusinessProfile.REPORTING_PERIOD_CHOICES, default='quarter')
-
-    def validate_kvk_number(self, value):
-        if not value.isdigit() or len(value) != 8:
-            raise serializers.ValidationError("KVK number must be exactly 8 digits.")
-        return value
-
 class CompleteRegistrationSerializer(serializers.Serializer):
     # Step 1 fields
     first_name = serializers.CharField(max_length=30)

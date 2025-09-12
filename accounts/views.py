@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import login
 from django.db import transaction
+import threading
 from django.core.mail import send_mail
 from .models import OTPVerification, User
 from .serializers import (
@@ -109,6 +110,17 @@ def complete_registration(request):
     
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+
+
+def send_otp_email_async(subject, message, recipient_list):
+    def task():
+        try:
+            send_mail(subject, message, 'noreply@yourdomain.com', recipient_list, fail_silently=True)
+        except Exception as e:
+            print(f"Email sending failed: {e}")
+
+    threading.Thread(target=task).start()
+
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
 def user_login(request):
@@ -128,25 +140,26 @@ def user_login(request):
         
         # Check if 2FA is enabled
         if user.is_2fa_enabled:
-            # Generate and send OTP
             otp_code = str(random.randint(100000, 999999))
             OTPVerification.objects.filter(user=user, is_verified=False).delete()
             OTPVerification.objects.create(user=user, otp_code=otp_code)
-            # Send OTP via email
-            send_mail(
-                'Your Login OTP',
-                f'Your OTP code is: {otp_code}',
-                'noreply@yourdomain.com',
-                [user.email],
-                fail_silently=False,
-            )
-            
-            return Response({
+
+            # Respond immediately
+            response_data = {
                 'message': 'OTP sent to your email',
                 'user_id': user.id,
                 'requires_2fa': True,
                 'email': user.email
-            }, status=status.HTTP_200_OK)
+            }
+
+            # Send email in background
+            send_otp_email_async(
+                'Your Login OTP',
+                f'Your OTP code is: {otp_code}',
+                [user.email]
+            )
+
+            return Response(response_data, status=status.HTTP_200_OK)
         
         # Normal login without 2FA
         login(request, user)

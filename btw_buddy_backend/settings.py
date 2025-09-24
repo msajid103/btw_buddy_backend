@@ -23,7 +23,10 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'corsheaders',
     'accounts',
-    'transactions'
+    'transactions',
+    'receipts',
+    'vat_returns',
+    'api'
 ]
 
 MIDDLEWARE = [

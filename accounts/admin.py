@@ -16,9 +16,8 @@ class UserAdmin(BaseUserAdmin):
             'fields': ('first_name', 'last_name', 'role', 'phone_number', 'language')
         }),
         ('Permissions', {
-            'fields': ('is_email_verified', 'is_staff', 'is_superuser', 'groups', 'user_permissions')
+            'fields': ('is_staff', 'is_2fa_enabled', 'is_superuser',)
         }),
-        ('2FA', {'fields': ('is_2fa_enabled', 'totp_secret')}),
         ('Important dates', {'fields': ('last_login', 'date_joined')}),
     )
 

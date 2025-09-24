@@ -1,6 +1,7 @@
 from decimal import Decimal
 from django.db import models
 from accounts.models import User
+from django.utils.timezone import now
 
 class Account(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='accounts')
@@ -110,23 +111,6 @@ class Transaction(models.Model):
         self.has_receipt = bool(self.receipt_file)
         
         super().save(*args, **kwargs)
-
-
-class Receipt(models.Model):
-    """Separate model to handle multiple receipts per transaction"""
-    transaction = models.ForeignKey(Transaction, on_delete=models.CASCADE, related_name='receipts')
-    file = models.FileField(upload_to='receipts/')
-    filename = models.CharField(max_length=255)
-    file_size = models.IntegerField()
-    content_type = models.CharField(max_length=100)
-    uploaded_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        db_table = 'receipts'
-
-    def __str__(self):
-        return f"Receipt for {self.transaction} - {self.filename}"
-
 
 class TransactionImport(models.Model):
     """Track CSV/bank imports"""

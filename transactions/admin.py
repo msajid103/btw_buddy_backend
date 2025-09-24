@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Account, Category, Transaction, Receipt, TransactionImport
+from .models import Account, Category, Transaction,TransactionImport
 
 
 @admin.register(Account)
@@ -18,10 +18,6 @@ class CategoryAdmin(admin.ModelAdmin):
     ordering = ('-created_at',)
 
 
-class ReceiptInline(admin.TabularInline):  # Inline receipts inside Transaction
-    model = Receipt
-    extra = 0
-    readonly_fields = ('filename', 'file_size', 'content_type', 'uploaded_at')
 
 
 @admin.register(Transaction)
@@ -38,15 +34,9 @@ class TransactionAdmin(admin.ModelAdmin):
         'account__name', 'category__name'
     )
     ordering = ('-date', '-created_at')
-    inlines = [ReceiptInline]
     readonly_fields = ('created_at', 'updated_at', 'import_reference')
 
 
-@admin.register(Receipt)
-class ReceiptAdmin(admin.ModelAdmin):
-    list_display = ('id', 'transaction', 'filename', 'file_size', 'content_type', 'uploaded_at')
-    search_fields = ('filename', 'transaction__description')
-    ordering = ('-uploaded_at',)
 
 
 @admin.register(TransactionImport)

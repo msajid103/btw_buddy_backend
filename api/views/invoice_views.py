@@ -136,12 +136,11 @@ class InvoiceViewSet(viewsets.ModelViewSet):
         invoice = self.get_object()
         
         try:
-            # For now, return a simple response
-            # In production, you'd use libraries like reportlab or weasyprint
-            pdf_content = self.generate_invoice_pdf(invoice)
+            # Generate simple HTML content for now
+            html_content = self.generate_simple_html_invoice(invoice)
             
-            response = HttpResponse(pdf_content, content_type='application/pdf')
-            response['Content-Disposition'] = f'attachment; filename="invoice-{invoice.invoice_number}.pdf"'
+            response = HttpResponse(html_content, content_type='text/html')
+            response['Content-Disposition'] = f'attachment; filename="invoice-{invoice.invoice_number}.html"'
             return response
             
         except Exception as e:
@@ -150,38 +149,127 @@ class InvoiceViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
     
-    def generate_invoice_pdf(self, invoice):
-        """Generate PDF content for invoice"""
-        # This is a placeholder - implement with reportlab or weasyprint
-        # For now, return a simple text representation
-        content = f"""
-        INVOICE {invoice.invoice_number}
+    def generate_simple_html_invoice(self, invoice):
+        """Generate simple HTML invoice for download"""
+        html_content = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Invoice {invoice.invoice_number}</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; margin: 20px; }}
+        .header {{ display: flex; justify-content: space-between; margin-bottom: 30px; border-bottom: 2px solid #000; padding-bottom: 10px; }}
+        .company-info {{ flex: 1; }}
+        .invoice-info {{ flex: 1; text-align: right; }}
+        .customer-info {{ margin: 30px 0; padding: 15px; background-color: #f9f9f9; }}
+        table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
+        th, td {{ border: 1px solid #ddd; padding: 10px; text-align: left; }}
+        th {{ background-color: #f2f2f2; font-weight: bold; }}
+        .totals {{ margin-top: 30px; text-align: right; }}
+        .total-line {{ padding: 5px 0; }}
+        .total-final {{ border-top: 2px solid #000; font-weight: bold; font-size: 18px; }}
+        .notes {{ margin-top: 30px; padding: 15px; background-color: #f9f9f9; }}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="company-info">
+            <h2>{invoice.company_name or 'Your Company Name'}</h2>
+            <p>{invoice.company_address or 'Company Address'}</p>
+            <p>VAT: {invoice.company_vat_number or 'N/A'}</p>
+            <p>CoC: {invoice.company_chamber_of_commerce or 'N/A'}</p>
+        </div>
+        <div class="invoice-info">
+            <h1>INVOICE</h1>
+            <p><strong>Invoice #:</strong> {invoice.invoice_number}</p>
+            <p><strong>Date:</strong> {invoice.invoice_date}</p>
+            <p><strong>Due Date:</strong> {invoice.due_date}</p>
+            <p><strong>Status:</strong> {invoice.status.upper()}</p>
+        </div>
+    </div>
+    
+    <div class="customer-info">
+        <h3>Bill To:</h3>
+        <p><strong>{invoice.customer.name}</strong></p>
+        <p>{invoice.customer.address}</p>"""
         
-        Date: {invoice.invoice_date}
-        Due Date: {invoice.due_date}
-        
-        Bill To:
-        {invoice.customer.name}
-        {invoice.customer.address}
-        VAT: {invoice.customer.vat_number}
-        
-        Items:
-        """
+        if invoice.customer.vat_number:
+            html_content += f"<p>VAT: {invoice.customer.vat_number}</p>"
+        if invoice.customer.chamber_of_commerce:
+            html_content += f"<p>CoC: {invoice.customer.chamber_of_commerce}</p>"
+            
+        html_content += """
+    </div>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Description</th>
+                <th style="text-align: center;">Qty</th>
+                <th style="text-align: right;">Unit Price</th>
+                <th style="text-align: center;">VAT Rate</th>
+                <th style="text-align: right;">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+"""
         
         for line in invoice.lines.all():
-            content += f"\n{line.description} - {line.quantity} x €{line.unit_price} = €{line.line_total}"
+            html_content += f"""
+            <tr>
+                <td>{line.description}</td>
+                <td style="text-align: center;">{line.quantity}</td>
+                <td style="text-align: right;">€{line.unit_price:.2f}</td>
+                <td style="text-align: center;">{line.vat_rate}%</td>
+                <td style="text-align: right;">€{line.line_total:.2f}</td>
+            </tr>
+"""
         
-        content += f"""
+        html_content += f"""
+        </tbody>
+    </table>
+    
+    <div class="totals">
+        <div class="total-line">
+            <strong>Subtotal (excl. VAT): €{invoice.subtotal:.2f}</strong>
+        </div>"""
         
-        Subtotal: €{invoice.subtotal}
-        VAT: €{invoice.total_vat}
-        Total: €{invoice.total}
+        # Add VAT breakdown
+        if invoice.vat_breakdown:
+            for rate, data in invoice.vat_breakdown.items():
+                if float(data.get('vat', 0)) > 0:
+                    html_content += f"""
+        <div class="total-line">
+            VAT {rate}%: €{float(data['vat']):.2f}
+        </div>"""
         
-        Payment Instructions:
-        {invoice.payment_instructions}
-        """
+        html_content += f"""
+        <div class="total-line total-final">
+            <strong>TOTAL (incl. VAT): €{invoice.total:.2f}</strong>
+        </div>
+    </div>
+    
+    <div class="notes">
+        <h4>Payment Instructions:</h4>
+        <p>{invoice.payment_instructions}</p>"""
         
-        return content.encode('utf-8')
+        if invoice.notes:
+            html_content += f"""
+        <h4>Additional Notes:</h4>
+        <p>{invoice.notes}</p>"""
+            
+        html_content += """
+    </div>
+    
+    <div style="margin-top: 50px; text-align: center; color: #666; font-size: 12px;">
+        <p>This invoice was generated electronically and is valid without signature.</p>
+    </div>
+</body>
+</html>
+"""
+        
+        return html_content
     
     @action(detail=True, methods=['post'])
     def send_email(self, request, pk=None):

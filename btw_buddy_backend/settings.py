@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     'transactions',
     'receipts',
     'vat_returns',
+    'invoices',
     'api'
 ]
 

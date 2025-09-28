@@ -3,6 +3,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from api.views import (
+    invoice_views,
     transactions_views, 
     bank_account_views, 
     category_views, 
@@ -22,6 +23,9 @@ router.register(r'receipts', receipts_views.ReceiptViewSet, basename='receipt')
 router.register(r'vat-returns', vat_returns_views.VATReturnViewSet, basename='vatreturn')
 # router.register(r'vat-line-items', vat_returns_views.VATReturnLineItemViewSet, basename='vatreturnlineitem')
 router.register(r'dashboard', dashboard_views.DashboardViewSet, basename='dashboard')
+router.register(r'invoices', invoice_views.InvoiceViewSet, basename='invoice')
+router.register(r'customers', invoice_views.CustomerViewSet, basename='customer')
+
 
 urlpatterns = [
     path('', include(router.urls)),

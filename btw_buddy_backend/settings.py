@@ -161,7 +161,20 @@ SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = 'DENY'
 
-if not DEBUG:
+# Azure App Service specific configuration
+if 'WEBSITE_HOSTNAME' in os.environ:
+    # Running on Azure
+    ALLOWED_HOSTS.append(os.environ['WEBSITE_HOSTNAME'])
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = False  # Azure handles SSL at load balancer
+    CSRF_TRUSTED_ORIGINS.append(f"https://{os.environ['WEBSITE_HOSTNAME']}")
+    
+    # Optional: Enable HSTS for production
+    SECURE_HSTS_SECONDS = 3600
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+elif not DEBUG:
+    # Non-Azure production environment
     SECURE_SSL_REDIRECT = True
     SECURE_HSTS_SECONDS = 3600
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True

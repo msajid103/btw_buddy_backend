@@ -41,7 +41,7 @@ def send_verification_email(request):
     email = request.data.get('email')
     try:
         user = User.objects.get(email=email, is_email_verified=False)
-        verification_link = f"http://localhost:3000/verify-email/{user.email_verification_token}"
+        verification_link = f"https://www.btw-buddy.nl/verify-email/{user.email_verification_token}"
         send_mail(
             'Verify your email',
             f'Click here to verify: {verification_link}',

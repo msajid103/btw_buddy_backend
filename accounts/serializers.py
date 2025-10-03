@@ -11,8 +11,12 @@ class UserRegistrationStep1Serializer(serializers.Serializer):
     confirm_password = serializers.CharField(write_only=True)
 
     def validate_email(self, value):
-        if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError("A user with this email already exists.")
+        existing_user = User.objects.filter(email=value).first()
+        if existing_user:
+            if not existing_user.is_email_verified:
+                existing_user.delete()
+            else:
+                raise serializers.ValidationError("A user with this email already exists.")
         return value
 
     def validate(self, attrs):

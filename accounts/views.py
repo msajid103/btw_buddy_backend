@@ -1,4 +1,5 @@
 import random
+from django.conf import settings
 from rest_framework import status, generics, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -33,15 +34,13 @@ def register_step1_validate(request):
         }, status=status.HTTP_200_OK)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
-# Add after register_step1_validate view:
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
 def send_verification_email(request):
     email = request.data.get('email')
     try:
         user = User.objects.get(email=email, is_email_verified=False)
-        verification_link = f"https://www.btw-buddy.nl/verify-email/{user.email_verification_token}"
+        verification_link = f"{settings.FRONTEND_URL}/verify-email/{user.email_verification_token}"
         send_mail(
             'Verify your email',
             f'Click here to verify: {verification_link}',

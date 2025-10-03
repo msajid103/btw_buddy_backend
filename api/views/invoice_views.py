@@ -1,3 +1,4 @@
+from django.core.mail import EmailMessage
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -370,129 +371,7 @@ class InvoiceViewSet(viewsets.ModelViewSet):
         
         buffer.seek(0)
         return buffer
-    
-    def generate_simple_html_invoice(self, invoice):
-        """Generate simple HTML invoice for download"""
-        html_content = f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>Invoice {invoice.invoice_number}</title>
-    <style>
-        body {{ font-family: Arial, sans-serif; margin: 20px; }}
-        .header {{ display: flex; justify-content: space-between; margin-bottom: 30px; border-bottom: 2px solid #000; padding-bottom: 10px; }}
-        .company-info {{ flex: 1; }}
-        .invoice-info {{ flex: 1; text-align: right; }}
-        .customer-info {{ margin: 30px 0; padding: 15px; background-color: #f9f9f9; }}
-        table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
-        th, td {{ border: 1px solid #ddd; padding: 10px; text-align: left; }}
-        th {{ background-color: #f2f2f2; font-weight: bold; }}
-        .totals {{ margin-top: 30px; text-align: right; }}
-        .total-line {{ padding: 5px 0; }}
-        .total-final {{ border-top: 2px solid #000; font-weight: bold; font-size: 18px; }}
-        .notes {{ margin-top: 30px; padding: 15px; background-color: #f9f9f9; }}
-    </style>
-</head>
-<body>
-    <div class="header">
-        <div class="company-info">
-            <h2>{invoice.company_name or 'Your Company Name'}</h2>
-            <p>{invoice.company_address or 'Company Address'}</p>
-            <p>VAT: {invoice.company_vat_number or 'N/A'}</p>
-            <p>CoC: {invoice.company_chamber_of_commerce or 'N/A'}</p>
-        </div>
-        <div class="invoice-info">
-            <h1>INVOICE</h1>
-            <p><strong>Invoice #:</strong> {invoice.invoice_number}</p>
-            <p><strong>Date:</strong> {invoice.invoice_date}</p>
-            <p><strong>Due Date:</strong> {invoice.due_date}</p>
-            <p><strong>Status:</strong> {invoice.status.upper()}</p>
-        </div>
-    </div>
-    
-    <div class="customer-info">
-        <h3>Bill To:</h3>
-        <p><strong>{invoice.customer.name}</strong></p>
-        <p>{invoice.customer.address}</p>"""
-        
-        if invoice.customer.vat_number:
-            html_content += f"<p>VAT: {invoice.customer.vat_number}</p>"
-        if invoice.customer.chamber_of_commerce:
-            html_content += f"<p>CoC: {invoice.customer.chamber_of_commerce}</p>"
-            
-        html_content += """
-    </div>
-    
-    <table>
-        <thead>
-            <tr>
-                <th>Description</th>
-                <th style="text-align: center;">Qty</th>
-                <th style="text-align: right;">Unit Price</th>
-                <th style="text-align: center;">VAT Rate</th>
-                <th style="text-align: right;">Amount</th>
-            </tr>
-        </thead>
-        <tbody>
-"""
-        
-        for line in invoice.lines.all():
-            html_content += f"""
-            <tr>
-                <td>{line.description}</td>
-                <td style="text-align: center;">{line.quantity}</td>
-                <td style="text-align: right;">€{line.unit_price:.2f}</td>
-                <td style="text-align: center;">{line.vat_rate}%</td>
-                <td style="text-align: right;">€{line.line_total:.2f}</td>
-            </tr>
-"""
-        
-        html_content += f"""
-        </tbody>
-    </table>
-    
-    <div class="totals">
-        <div class="total-line">
-            <strong>Subtotal (excl. VAT): €{invoice.subtotal:.2f}</strong>
-        </div>"""
-        
-        # Add VAT breakdown
-        if invoice.vat_breakdown:
-            for rate, data in invoice.vat_breakdown.items():
-                if float(data.get('vat', 0)) > 0:
-                    html_content += f"""
-        <div class="total-line">
-            VAT {rate}%: €{float(data['vat']):.2f}
-        </div>"""
-        
-        html_content += f"""
-        <div class="total-line total-final">
-            <strong>TOTAL (incl. VAT): €{invoice.total:.2f}</strong>
-        </div>
-    </div>
-    
-    <div class="notes">
-        <h4>Payment Instructions:</h4>
-        <p>{invoice.payment_instructions}</p>"""
-        
-        if invoice.notes:
-            html_content += f"""
-        <h4>Additional Notes:</h4>
-        <p>{invoice.notes}</p>"""
-            
-        html_content += """
-    </div>
-    
-    <div style="margin-top: 50px; text-align: center; color: #666; font-size: 12px;">
-        <p>This invoice was generated electronically and is valid without signature.</p>
-    </div>
-</body>
-</html>
-"""
-        
-        return html_content
-    
+
     @action(detail=True, methods=['post'])
     def send_email(self, request, pk=None):
         """Send invoice via email"""
@@ -546,18 +425,26 @@ class InvoiceViewSet(viewsets.ModelViewSet):
             )
             
             # Generate PDF attachment (placeholder)
-            pdf_content = self.generate_invoice_pdf(invoice)
+            pdf_buffer = self.generate_pdf_file(invoice) 
+            pdf_content = pdf_buffer.getvalue() 
             
             # Send email (configure your email backend in Django settings)
-            send_mail(
-                subject=subject,
-                message=message,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[to_email],
-                fail_silently=False,
-                # In production, add PDF as attachment:
-                # attachments=[('invoice.pdf', pdf_content, 'application/pdf')]
+              # Build email
+            email = EmailMessage(
+            subject=subject,
+            body=message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[to_email],
             )
+
+            # Attach the PDF
+            email.attach(
+            filename=f"invoice-{invoice.invoice_number}.pdf",
+            content=pdf_content,
+            mimetype="application/pdf"
+            )
+            # Send email
+            email.send(fail_silently=False)
             
             # Mark as successful
             email_log.sent_successfully = True

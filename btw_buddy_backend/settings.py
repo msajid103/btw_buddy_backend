@@ -10,6 +10,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
+FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:3000")
 SECRET_KEY = env("SECRET_KEY", default="your-secret-key-here")
 DEBUG = env.bool("DEBUG", default=True)
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])

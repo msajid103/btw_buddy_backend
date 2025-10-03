@@ -11,21 +11,7 @@ class CustomerSerializer(serializers.ModelSerializer):
             'id', 'name', 'address', 'vat_number', 'chamber_of_commerce',
             'email', 'phone', 'is_active', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
-
-    def validate_name(self, value):
-        """Ensure customer name is unique for the user"""
-        request = self.context.get('request')
-        if request and hasattr(request, 'user'):
-            # Check for existing customer with same name
-            existing = Customer.objects.filter(
-                user=request.user, 
-                name=value
-            ).exclude(pk=self.instance.pk if self.instance else None)
-            
-            if existing.exists():
-                raise serializers.ValidationError("A customer with this name already exists.")
-        return value
+        read_only_fields = ['id', 'created_at', 'updated_at']    
 
 
 class InvoiceLineSerializer(serializers.ModelSerializer):
@@ -167,6 +153,7 @@ class InvoiceSerializer(serializers.ModelSerializer):
         
         # Recalculate totals
         invoice.calculate_totals()
+        invoice.save(update_fields=['subtotal', 'total_vat', 'total', 'vat_breakdown'])
         return invoice
 
     def update(self, instance, validated_data):

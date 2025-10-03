@@ -20,8 +20,7 @@ class Customer(models.Model):
 
     class Meta:
         db_table = 'customers'
-        ordering = ['name']
-        unique_together = ['user', 'name']
+        ordering = ['name']   
 
     def __str__(self):
         return f"{self.name} - {self.user.full_name}"

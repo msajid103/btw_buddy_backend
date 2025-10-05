@@ -18,4 +18,5 @@ urlpatterns = [
     path('verify-email/', views.verify_email, name='verify_email'),
     path('verify-otp/', views.verify_otp, name='verify_otp'),
     path('profile/', views.UserProfileView.as_view(), name='profile'),
+    path('change-password/', views.change_password, name='change_password'),
 ]

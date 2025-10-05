@@ -9,7 +9,11 @@ from django.db import transaction
 import threading
 from django.core.mail import send_mail
 from .models import OTPVerification, User
+from django.contrib.auth.hashers import check_password
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 from .serializers import (
+    ChangePasswordSerializer,
     UserRegistrationStep1Serializer,
     CompleteRegistrationSerializer,
     UserLoginSerializer,
@@ -122,6 +126,7 @@ def send_otp_email_async(subject, message, recipient_list):
 
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
+
 def user_login(request):
     """
     User login endpoint with 2FA support
@@ -217,6 +222,28 @@ def user_logout(request):
         return Response({'message': 'Logout successful'}, status=status.HTTP_200_OK)
     except Exception:
         return Response({'error': 'Invalid refresh token'}, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def change_password(request):
+    serializer = ChangePasswordSerializer(data=request.data)
+    
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    user = request.user
+    
+    if not user.check_password(serializer.validated_data['current_password']):
+        return Response(
+            {'error': 'Current password is incorrect'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    user.set_password(serializer.validated_data['new_password'])
+    user.save()
+    
+    return Response({'message': 'Password changed successfully'})
+
 
 class UserProfileView(generics.RetrieveUpdateAPIView):
     """

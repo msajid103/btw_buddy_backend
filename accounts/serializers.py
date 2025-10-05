@@ -108,6 +108,16 @@ class UserLoginSerializer(serializers.Serializer):
         else:
             raise serializers.ValidationError('Must include email and password.')
 
+class ChangePasswordSerializer(serializers.Serializer):
+    current_password = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True, min_length=8)
+    confirm_password = serializers.CharField(required=True)
+    
+    def validate(self, data):
+        if data['new_password'] != data['confirm_password']:
+            raise serializers.ValidationError("New passwords do not match")
+        return data
+
 class UserProfileSerializer(serializers.ModelSerializer):
     business_profile = BusinessProfileSerializer()
     full_name = serializers.ReadOnlyField()

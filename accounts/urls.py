@@ -19,4 +19,10 @@ urlpatterns = [
     path('verify-otp/', views.verify_otp, name='verify_otp'),
     path('profile/', views.UserProfileView.as_view(), name='profile'),
     path('change-password/', views.change_password, name='change_password'),
+
+     # Password Reset URLs
+    path('password-reset/', views.password_reset_request, name='password-reset-request'),
+    path('password-reset-confirm/', views.password_reset_confirm, name='password-reset-confirm'),
+    path('password-reset-validate/<str:uid>/<str:token>/', views.password_reset_validate_token, name='password-reset-validate'),
+
 ]

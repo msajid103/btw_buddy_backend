@@ -17,7 +17,9 @@ from .serializers import (
     UserRegistrationStep1Serializer,
     CompleteRegistrationSerializer,
     UserLoginSerializer,
-    UserProfileSerializer
+    UserProfileSerializer,
+    PasswordResetRequestSerializer,
+    PasswordResetConfirmSerializer
 )
 
 @api_view(['POST'])
@@ -244,6 +246,66 @@ def change_password(request):
     
     return Response({'message': 'Password changed successfully'})
 
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def password_reset_request(request):
+    """
+    Request password reset - sends email with reset link
+    """
+    serializer = PasswordResetRequestSerializer(data=request.data)
+    if serializer.is_valid():
+        result = serializer.save()
+        return Response(result, status=status.HTTP_200_OK)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def password_reset_confirm(request):
+    """
+    Confirm password reset with token
+    """
+    serializer = PasswordResetConfirmSerializer(data=request.data)
+    if serializer.is_valid():
+        result = serializer.save()
+        return Response(result, status=status.HTTP_200_OK)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def password_reset_validate_token(request, uid, token):
+    """
+    Validate if reset token is valid
+    """
+    from django.contrib.auth.tokens import PasswordResetTokenGenerator
+    from django.utils.http import urlsafe_base64_decode
+    from django.utils.encoding import force_str
+    from django.contrib.auth import get_user_model
+    
+    User = get_user_model()
+    
+    try:
+        uid = force_str(urlsafe_base64_decode(uid))
+        user = User.objects.get(pk=uid)
+        token_generator = PasswordResetTokenGenerator()
+        
+        if token_generator.check_token(user, token):
+            return Response({
+                'valid': True,
+                'message': 'Token is valid'
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({
+                'valid': False,
+                'message': 'Invalid or expired token'
+            }, status=status.HTTP_400_BAD_REQUEST)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        return Response({
+            'valid': False,
+            'message': 'Invalid reset link'
+        }, status=status.HTTP_400_BAD_REQUEST)
 
 class UserProfileView(generics.RetrieveUpdateAPIView):
     """
